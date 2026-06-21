@@ -1,196 +1,119 @@
-# Real-Time Low-Latency Audio Processing System
+# Real-Time Harmony Engine
 
-## Overview
+A low-latency, real-time vocal harmonizer built in Python. Captures live audio via a Focusrite Scarlett Solo, pitch-shifts it into three parallel harmony voices using WSOLA, and mixes them back in real time at ~23ms latency.
 
-This project is a real-time low-latency audio processing system built in Python using a Focusrite Scarlett Solo audio interface and ASIO drivers. The application captures live audio streams, performs real-time DSP (Digital Signal Processing) operations, and outputs processed audio with minimal latency.
-
-The primary focus of the project was not only audio transformation, but also understanding and implementing:
-
-- Real-time audio streaming
-- Low-latency processing pipelines
-- Buffer management
-- Audio thread optimization
-- DSP performance constraints
-- Hardware/software audio synchronization
-
-The system was designed as a practical exploration of how modern audio engines process live signals under strict timing requirements.
+🎥 **[Video Demo](https://drive.google.com/drive/folders/1FDp65XoFdiHWB9RHp_Luu4pR2j9-GzQ6)**
 
 ---
 
-# Tech Stack
+## Features
 
-- **Python 3**
-- **pytsmod**
-  - Time-scale modification and pitch shifting
-- **sounddevice**
-  - Real-time audio streaming and callback handling
-- **ASIO Drivers**
-  - Low-latency audio communication
-- **Focusrite Scarlett Solo**
-  - USB audio interface for live input/output processing
+- Real-time multi-voice harmony generation over live microphone input
+- WSOLA-based pitch shifting via [pytsmod](https://github.com/KAIST-MACLab/pytsmod)
+- Parallel voice processing with dedicated worker threads per harmony voice
+- Multiple harmony presets (major/minor triads, barbershop, gospel, octave stacks, custom intervals)
+- ASIO low-latency audio support with Focusrite Scarlett Solo integration
+- Interactive terminal interface for live preset switching, gain control, and device selection
+- Configurable buffer sizes for latency/stability tradeoff
 
 ---
 
-# Core Features
-
-- Real-time audio input/output streaming
-- Low-latency DSP pipeline
-- Buffer-based audio processing
-- Live signal transformation
-- Audio callback processing architecture
-- ASIO-based low-latency communication
-- Modular DSP experimentation environment
-
----
-
-# System Architecture
+## System Architecture
 
 ```text
-Audio Input
-    ↓
-Scarlett Solo Interface
-    ↓
+Microphone Input
+        │
+        ▼
+Focusrite Scarlett Solo
+        │
+        ▼
 ASIO Driver Layer
-    ↓
-sounddevice Stream Callback
-    ↓
-Real-Time Buffer Processing
-    ↓
-pytsmod DSP Engine
-    ↓
-Output Buffer
-    ↓
-Audio Output
+        │
+        ▼
+Input Callback
+        │
+        ▼
+Voice Worker Threads
+ ┌────┼────┐
+ ▼    ▼    ▼
+Voice 1 Voice 2 Voice 3
+        │
+        ▼
+   Mixer Thread
+        │
+        ▼
+  Output Stream
+        │
+        ▼
+Speakers / Headphones
 ```
 
----
-
-# Project Objectives
-
-## Real-Time Audio Processing
-
-The project was built around maintaining continuous real-time audio throughput while avoiding:
-
-- Buffer underruns
-- Audio dropouts
-- Thread blocking
-- Excessive processing latency
+Incoming audio is divided into blocks and distributed across dedicated worker threads. Each thread generates an independent harmony voice using pitch shifting before the signals are mixed together and streamed to the output device. The mixer applies soft clipping to prevent distortion when combining voices.
 
 ---
 
-## Low-Latency Optimization
+## Technologies
 
-Special focus was placed on reducing end-to-end latency through:
-
-- ASIO driver integration
-- Buffer size tuning
-- Lightweight DSP operations
-- Efficient callback execution
-- Reduced memory allocation during streams
-
----
-
-## DSP Experimentation
-
-The processing pipeline supports experimentation with:
-
-- Pitch shifting
-- Time-scale modification
-- Live signal manipulation
-- Streaming DSP operations
+| Layer    | Stack                                      |
+| -------- | ------------------------------------------ |
+| Language | Python                                     |
+| DSP      | NumPy, SciPy, pytsmod (WSOLA)              |
+| Audio I/O| sounddevice, ASIO drivers                  |
+| Hardware | Focusrite Scarlett Solo                     |
 
 ---
 
-# Installation
+## Latency
 
-## Install Dependencies
+| Buffer Size  | Approximate Latency | Notes                                   |
+| ------------ | ------------------- | --------------------------------------- |
+| 512 samples  | ~12 ms              | Lowest latency, more prone to underruns |
+| 1024 samples | ~23 ms              | Balanced configuration                  |
+| 2048 samples | ~46 ms              | Stable under heavier DSP workloads      |
+| 4096 samples | ~93 ms              | Maximum stability                       |
+
+---
+
+## Technical Challenges
+
+**Real-time callback constraints.** Audio callbacks operate under strict deadlines — if processing overruns, glitches occur. Processing was offloaded into worker threads with queue-based communication to keep the callback lightweight.
+
+**Multi-stream synchronization.** Each harmony voice is processed independently, so processed blocks must be synchronized before mixing. This required careful queue management and thread coordination to prevent timing drift.
+
+**Latency vs. stability.** Smaller buffers improve responsiveness but tighten timing margins across the entire pipeline. Buffer configuration is exposed as a tunable parameter.
+
+---
+
+## Why I Built This
+
+Most DSP tutorials cover the math behind audio effects but stop short of building a complete real-time system. I wanted to build one end-to-end — from microphone capture through parallel pitch shifting to mixed output — and learn how professional audio software manages strict timing constraints while processing data continuously.
+
+---
+
+## Installation
 
 ```bash
-pip install pytsmod sounddevice numpy
+pip install pytsmod sounddevice numpy scipy
 ```
 
-# Buffering and Latency Work
+```bash
+python Pytsmod_Harmony_engine.py
+```
 
-A major component of the project involved understanding how real-time systems handle audio buffering under timing constraints.
-
-## Buffer Size Testing
-
-Different buffer sizes were tested to balance:
-
-- Latency
-- Stream stability
-- CPU utilization
-- DSP processing overhead
-
-### Tested Configurations
-
-| Buffer Size  | Purpose                         |
-| ------------ | ------------------------------- |
-| 512 samples  | Lower latency real-time testing |
-| 1024 samples | Balanced latency and stability  |
-| 2048 samples | Stability-focused processing    |
-
-Smaller buffers reduced perceived latency but increased the likelihood of underruns and audio instability during heavier DSP workloads. Larger buffers improved stability at the cost of increased round-trip latency.
+Requires an ASIO-compatible audio interface (tested with Focusrite Scarlett Solo on Windows).
 
 ---
 
-# Real-Time Processing Considerations
+## Future Work
 
-The DSP pipeline was optimized to minimize:
-
-- Callback execution time
-- Memory allocations
-- Blocking operations
-- Processing overhead
-
-This was critical to maintaining uninterrupted audio streams under low-latency conditions.
+- MIDI controller integration for live performance
+- GPU-accelerated DSP processing
+- Graphical user interface
+- Dynamic key detection and automatic harmony generation
 
 ---
 
-# Performance Focus Areas
+## Author
 
-- Real-time callback execution
-- Stream synchronization
-- Audio throughput stability
-- Buffer scheduling
-- DSP efficiency
-- Low-latency hardware communication
-
----
-
-# Technical Challenges
-
-- Preventing audio underruns
-- Maintaining stable streams at smaller buffer sizes
-- Managing CPU load during DSP operations
-- Synchronizing input/output streams in real time
-- Balancing processing complexity with latency requirements
-
----
-
-# Future Improvements
-
-- Expanded DSP effect chain
-- Multi-threaded processing pipeline
-- MIDI device integration
-- Recording and writing to an audio file.
-
----
-
-# Learning Outcomes
-
-This project provided hands-on experience with:
-
-- Real-time systems programming
-- Low-latency audio architecture
-- Audio buffer management
-- DSP pipeline optimization
-- Python-based audio streaming
-- ASIO driver integration
-- Performance tuning for live audio applications
-
----
-
-# License
-
-MIT License
+**Mawiignen Tony Mallen-Ntiador**
+Computer Science & Applied Physics — Davidson College
